@@ -1,74 +1,76 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Instream Video and Banner Ad Mixed Page</title>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Video.js + Prebid.js instream example</title>
 
-    <!-- required scripts -->
-    <script async src="//cdn.jsdelivr.net/npm/prebid.js@latest/dist/not-for-prod/prebid.js"></script>
+    <!-- ─────  Video.js + ad-plugin CSS  ───── -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/video.js@8.23.3/dist/video-js.min.css">
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/7.5.2/videojs-contrib-ads.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/videojs-ima/2.3.0/videojs.ima.css">
+
+    <!-- ─────  Core libraries  ───── -->
+    <script async src="https://cdn.jsdelivr.net/npm/prebid.js@latest/dist/not-for-prod/prebid.js"></script>
     <script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
+
+    <!--  Video.js + ad helpers  -->
+    <script src="https://cdn.jsdelivr.net/npm/video.js@8.23.3/dist/video.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/7.5.2/videojs.ads.min.js"></script>
+    <script src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-ima/2.3.0/videojs.ima.min.js"></script>
 </head>
 
 <body>
 
-    <!-- javascript -->
-    <script>var div_1_sizes = [
-            [300, 250],
-            [300, 600]
-        ];
-        var div_2_sizes = [
-            [728, 90],
-            [970, 250]
-        ];
-        var PREBID_TIMEOUT = 1000;
-        var FAILSAFE_TIMEOUT = 3000;
+    <h2>Prebid instream ad running in Video.js</h2>
 
-        var adUnits = [
+    <!--  The content player -->
+    <video id="content_video" class="video-js vjs-default-skin" controls width="640" height="480"
+        poster="https://peach.blender.org/wp-content/uploads/title_anouncement.jpg">
+        <source src="https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4"
+            type="video/mp4">
+    </video>
+
+    <!-- ############### Prebid + GPT setup ############### -->
+    <script>
+        /* ----  ad-size helpers (unchanged from original example) ---- */
+        const div_1_sizes = [[300, 250], [300, 600]];
+        const div_2_sizes = [[728, 90], [970, 250]];
+
+        const PREBID_TIMEOUT = 1000;
+        const FAILSAFE_TIMEOUT = 3000;
+
+        /* ----  DISPLAY adUnits (keep if you still want banner demand) ---- */
+        const adUnits = [
             {
                 code: '/19968336/header-bid-tag-0',
-                mediaTypes: {
-                    banner: {
-                        sizes: div_1_sizes
-                    }
-                },
-                bids: [{
-                    bidder: 'appnexus',
-                    params: {
-                        placementId: 13144370
-                    }
-                }]
+                mediaTypes: { banner: { sizes: div_1_sizes } },
+                bids: [{ bidder: 'appnexus', params: { placementId: 13144370 } }]
             },
             {
                 code: '/19968336/header-bid-tag-1',
-                mediaTypes: {
-                    banner: {
-                        sizes: div_2_sizes
-                    }
-                },
-                bids: [{
-                    bidder: 'appnexus',
-                    params: {
-                        placementId: 13144370
-                    }
-                }]
+                mediaTypes: { banner: { sizes: div_2_sizes } },
+                bids: [{ bidder: 'appnexus', params: { placementId: 13144370 } }]
             }
         ];
 
-        var videoAdUnit = {
+        /* ----  VIDEO adUnit ---- */
+        const videoAdUnit = {
             code: 'video1',
             mediaTypes: {
                 video: {
                     playerSize: [640, 480],
                     context: 'instream',
-                    plcmt: 2,
+                    plcmt: 2
                 }
             },
             bids: [{
                 bidder: 'appnexus',
                 params: {
-                    placementId: 13232361, // Add your own placement id here
+                    placementId: 13232361,          // <--- your own placement ID here
                     video: {
                         skipppable: true,
                         playback_method: ['auto_play_sound_off']
@@ -77,150 +79,112 @@
             }]
         };
 
+        /* ----  GPT safe-load ---- */
         var googletag = googletag || {};
         googletag.cmd = googletag.cmd || [];
-        googletag.cmd.push(function () {
-            googletag.pubads().disableInitialLoad();
-        });
+        googletag.cmd.push(() => googletag.pubads().disableInitialLoad());
 
-        // Init Prebid.js
+        /* ----  Prebid init ---- */
         var pbjs = pbjs || {};
         pbjs.que = pbjs.que || [];
 
-        // define invokeVideoPlayer in advance in case we get the bids back from prebid before the entire page loads
-        var tempTag = false;
-        var invokeVideoPlayer = function (url) {
-            tempTag = url;
-        };
+        /*  a temp holder in case the VAST URL comes back early  */
+        let pendingVastUrl = null;
+
+        /*  Predeclare player invocation so we can call it later  */
+        function invokeVideoPlayer(vastUrl) {
+            pendingVastUrl = vastUrl; // save until player is ready
+        }
 
         pbjs.que.push(function () {
             pbjs.addAdUnits(adUnits);
             pbjs.addAdUnits(videoAdUnit);
             pbjs.setConfig({
                 debug: true,
-                cache: {
-                    url: '<https://prebid.adnxs.com/pbc/v1/cache>'
-                }
+                cache: { url: 'https://prebid.adnxs.com/pbc/v1/cache' }
             });
             pbjs.requestBids({
                 bidsBackHandler: initAdserver,
-                timeout: PREBID_TIMEOUT,
-                auctionId: 'auction_1'
-            })
+                timeout: PREBID_TIMEOUT
+            });
         });
 
-        function initAdserver(bids) {
-
+        /*  ----  After auctions finish ---- */
+        function initAdserver() {
             if (pbjs.initAdserverSet) return;
             pbjs.initAdserverSet = true;
 
-            // Get all of the adUnit codes for the display adUnits
-            var displayAdUnitCodes = [];
-            adUnits.forEach(function (adUnit) {
-                displayAdUnitCodes.push(adUnit.code);
-            });
-
-            // Set targeting for each display slot
+            /*  pass targeting for display slots, if any  */
+            const displayCodes = adUnits.map(u => u.code);
             googletag.cmd.push(function () {
-                if (pbjs.libLoaded) {
-                    pbjs.que.push(function () {
-                        pbjs.setTargetingForGPTAsync(displayAdUnitCodes);
-                        googletag.pubads().refresh();
-                    });
-                } else {
-                    googletag.pubads().refresh();
-                }
+                pbjs.setTargetingForGPTAsync(displayCodes);
+                googletag.pubads().refresh();
             });
 
-            // Build DFP URL with targeting for videoAdUnit
-            var videoUrl = pbjs.adServers.dfp.buildVideoUrl({
+            /*  Build a VAST URL for our instream placement  */
+            const vastUrl = pbjs.adServers.dfp.buildVideoUrl({
                 adUnit: videoAdUnit,
                 params: {
                     iu: '/19968336/prebid_cache_video_adunit',
-                    cust_params: {
-                        section: 'blog',
-                        anotherKey: 'anotherValue'
-                    },
                     output: 'vast'
                 }
             });
 
-            // Pass URL to Video player to make final DFP call
-            invokeVideoPlayer(videoUrl);
+            /*  hand that URL to the player  */
+            invokeVideoPlayer(vastUrl);
         }
-        // in case PBJS doesn't load
-        setTimeout(function () {
-            initAdserver();
-        }, FAILSAFE_TIMEOUT);
 
+        /*  failsafe  */
+        setTimeout(initAdserver, FAILSAFE_TIMEOUT);
+
+        /*  GPT display slots (banners)  */
         googletag.cmd.push(function () {
             googletag.defineSlot('/19968336/header-bid-tag-0', div_1_sizes, 'div-1').addService(googletag.pubads());
-            googletag.pubads().enableSingleRequest();
-            googletag.enableServices();
-        });
-        googletag.cmd.push(function () {
             googletag.defineSlot('/19968336/header-bid-tag-1', div_2_sizes, 'div-2').addService(googletag.pubads());
             googletag.pubads().enableSingleRequest();
             googletag.enableServices();
         });
     </script>
 
-    <!-- html -->
-    <h2>Prebid Video - JW Platform</h2>
-    <div id="myElement1"></div>
-    <!-- This line loads a player without loading any video content -->
-    <!-- Replace this with the correct url for your player -->
-    <script src="https://content.jwplatform.com/libraries/72xIKEe6.js"></script>
+    <!-- ############### Video.js player bootstrap ############### -->
     <script>
+        /*  create the player once the DOM is ready  */
+        const player = videojs('content_video');
+        player.ready(function () {
 
-        // we initialize our player instance, specifying the div to load it into
-        var playerInstance = jwplayer('myElement1');
+            /* if Prebid already gave us a tag, wire it up now */
+            if (pendingVastUrl) setupIMA(pendingVastUrl);
 
-        function invokeVideoPlayer(url) {
-            // this calls setup on the player we initialized
-            // this will use the settings defined in the player we loaded above unless you override them here
-            playerInstance.setup({
-                // this line loads a playlist from your jwplatform account (in either json or rss format)
-                // this can also be a single media file by specifying "file" : "content.jwplatform.com/videos/VIDEOKEY.mp4"
-                // Replace this with the correct url for your playlist
-                "playlist": "https://cdn.jwplayer.com/v2/media/hWF9vG66",
-                "width": 640,
-                "height": 480,
-                // we enable vast advertising for this player
-                "advertising": {
-                    "client": "vast",
-                    // url is the vast tag url that we passed in when we called invokeVideoPlayer in the header
-                    "tag": url,
-                },
-            });
+            /* otherwise we’ll wait for invokeVideoPlayer() to be called */
+        });
+
+        /*  expose to Prebid callback  */
+        function invokeVideoPlayer(vastUrl) {
+            if (player.readyState() > 0) {
+                setupIMA(vastUrl);
+            } else {
+                pendingVastUrl = vastUrl; // will be picked up in player.ready()
+            }
         }
 
-        if (tempTag) {
-            invokeVideoPlayer(tempTag);
-            tempTag = false;
+        /*  small helper that glues IMA to Video.js  */
+        function setupIMA(vastUrl) {
+            player.ima({
+                adTagUrl: vastUrl,      // Prebid-generated VAST
+                debug: true
+            });
+
+            // auto-start content; the IMA plugin will pause and handle preroll
+            player.play();
         }
     </script>
 
-    <!-- Basic Prebid Display Section - Body -->
-    <!-- ################################### -->
-    <h2>Basic Prebid.js Example</h2>
+    <!-- Optional basic banner demo (kept from original) -->
+    <h2 style="margin-top:2rem">Basic Prebid banner test</h2>
     <h5>Div-1</h5>
-    <div id='div-1'>
-        <script type='text/javascript'>
-            googletag.cmd.push(function () {
-                googletag.display('div-1');
-            });
-        </script>
-    </div>
-
+    <div id="div-1"></div>
     <h5>Div-2</h5>
-    <div id='div-2'>
-        <script type='text/javascript'>
-            googletag.cmd.push(function () {
-                googletag.display('div-2');
-            });
-        </script>
-    </div>
+    <div id="div-2"></div>
 
 </body>
 
