@@ -34,12 +34,50 @@
                     skip: 1
                 }
             },
-            bids: [{
-                bidder: 'appnexus',
-                params: {
-                    placementId: 13232361
+            bids: [
+                {
+                    bidder: 'appnexus',
+                    params: {
+                        placementId: 13232361
+                    }
+                },
+                {
+                    bidder: "adagio",
+                    params: {
+                        organizationId: "1458",
+                        site: "mobalytics-gg"
+                    }
+                },
+                {
+                    bidder: "oms",
+                    params: {
+                        publisherId: "21048"
+                    }
+                },
+                {
+                    bidder: "onetag",
+                    params: {
+                        pubId: "80ac484cd63fd7e",
+                        ext: {
+                            placement_name: "web-video"
+                        }
+                    }
+                },
+                {
+                    bidder: "unruly",
+                    params: {
+                        siteId: 287980
+                    }
+                },
+                {
+                    bidder: "vidazoo",
+                    params: {
+                        cId: "67ee7a23e3011c328b218c68",
+                        pId: "59ac17c192832d0011283fe3",
+                        subDomain: "exchange"
+                    }
                 }
-            }]
+            ]
         };
 
         pbjs.que.push(function () {
