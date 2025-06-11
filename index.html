@@ -1,37 +1,60 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="ru">
 
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <meta charset="utf-8" />
+    <title>Video.js + Prebid Video + GAM demo</title>
+
+    <!-- Video.js -->
+    <link href="https://vjs.zencdn.net/8.11.4/video-js.css" rel="stylesheet" />
+    <script src="https://vjs.zencdn.net/8.11.4/video.min.js"></script>
+
+    <!-- IMA SDK + плагины -->
+    <script src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/videojs-contrib-ads@6"></script>
+    <script src="https://cdn.jsdelivr.net/npm/videojs-ima@2"></script>
+    <!-- ad-schedule-plugin удобно описывает mid-roll-ы -->
+    <script src="https://cdn.jsdelivr.net/npm/@video-js/ad-schedule-plugin"></script>
+
+    <!-- Google Publisher Tag -->
+    <script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
+
+    <!-- Prebid.js (соберите custom-build: dfpVideo + сопоставимые bidder-модули) -->
     <script async
         src="https://cdn.jsdelivr.net/gh/iammacheta/prebidjs-video-code@c6d463e3404bdbf5099e45e39f18fe0659663dfd/prebid.js"></script>
-    <!-- use recent version of videojs to ensure proper functioning with the iOS devices -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/video.js/6.4.0/video-js.css">
-    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/video.js/6.4.0/video.js"></script>
-    <!-- videojs-vast-vpaid -->
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/videojs-vast-vpaid/2.0.2/videojs.vast.vpaid.min.css"
-        rel="stylesheet">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-vast-vpaid/2.0.2/videojs_5.vast.vpaid.min.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            background: #000
+        }
+
+        .video-js {
+            width: 100%;
+            height: 56.25vw;
+            max-height: 100vh
+        }
+    </style>
+</head>
+
+<body>
+
+    <video id="content_video" class="video-js vjs-default-skin" playsinline muted autoplay preload="auto" controls>
+        <!-- контентный источник; нужен даже для autostart -->
+        <source src="https://vjs.zencdn.net/v/oceans.mp4" type="video/mp4" />
+    </video>
 
     <script>
-        var pbjs = pbjs || {};
-        pbjs.que = pbjs.que || [];
-
-
-        /* Prebid video ad unit */
-
-        var videoAdUnit = {
-            code: 'video1',
+        /* ---------- 1. Конфигурация Prebid ----------- */
+        const adUnit = {
+            code: 'instream_adunit',
             mediaTypes: {
                 video: {
                     context: 'instream',
-                    playerSize: [640, 480],
+                    playerSize: [640, 360],
                     mimes: ['video/mp4'],
-                    protocols: [1, 2, 3, 4, 5, 6, 7, 8],
-                    playbackmethod: [2],
-                    skip: 1
+                    protocols: [2, 3, 5],      // VAST 2/3/4
+                    api: [2]                 // VPAID 2 JS
                 }
             },
             bids: [
@@ -80,104 +103,64 @@
             ]
         };
 
-        pbjs.que.push(function () {
-            pbjs.addAdUnits(videoAdUnit);
-
-            pbjs.setConfig({
-                debug: true,
-                cache: {
-                    url: 'https://prebid.adnxs.com/pbc/v1/cache'
-                }
-            });
-
-            pbjs.requestBids({
-                bidsBackHandler: function (bids) {
-                    var videoUrl = pbjs.adServers.dfp.buildVideoUrl({
-                        adUnit: videoAdUnit,
-                        params: {
-                            iu: '/19968336/prebid_cache_video_adunit',
-                            cust_params: {
-                                section: 'blog',
-                                anotherKey: 'anotherValue'
-                            },
-                            output: 'vast'
-                        }
-                    });
-                    invokeVideoPlayer(videoUrl);
-                }
-            });
+        /* ---------- 2. Инициализируем Video.js + IMA ----------- */
+        const player = videojs('content_video', { muted: true, autoplay: 'muted', controls: true });
+        player.ready(() => {
+            // IMA должен один раз инициализироваться по пользовательскому действию
+            player.one('play', () => player.ima.initializeAdDisplayContainer());
         });
 
-    </script>
-</head>
+        /* ---------- 3. Вспом. функция: собираем URL для GAM ----------- */
+        function buildGamUrl() {
+            // Получаем таргетинги от Prebid в формате "k=v&k2=v2"
+            const custParams = pbjs.getAdserverTargeting()
+                ? encodeURIComponent(Object.entries(pbjs.getAdserverTargeting()[adUnit.code] || {})
+                    .map(([k, v]) => `${k}=${v}`).join('&'))
+                : '';
 
-<body>
-    <div class="example-video-container">
-        <video id="vid1" class="video-js vjs-default-skin vjs-big-play-centered" controls data-setup='{}' width='640'
-            height='480'>
-            <source src="https://vjs.zencdn.net/v/oceans.mp4" type='video/mp4' />
-            <source src="https://vjs.zencdn.net/v/oceans.webm" type='video/webm' />
-            <source src="https://vjs.zencdn.net/v/oceans.ogv" type='video/ogg' />
-        </video>
-    </div>
+            // VMAP с правилом mid-roll каждые 30 с
+            return `https://pubads.g.doubleclick.net/gampad/ads?` +
+                `iu=//19968336/prebid_cache_video_adunit` +        // Placement в GAM
+                `&description_url=https%3A%2F%iammacheta.github.io` +
+                `&env=vp&output=xml_vmap1&ad_rule=1` +     // VMAP+Ad Rules
+                `&cmsid=YOUR_CMSID&vid=0&correlator=${Date.now()}` +
+                (custParams ? `&cust_params=${custParams}` : '');
+        }
 
-
-    <script>
-        var page_load_time;
-
-        page_load_time = new Date().getTime() - performance.timing.navigationStart;
-        console.log(page_load_time + "ms -- Player loading!");
-
-        var vid1 = videojs('vid1');
-
-        page_load_time = new Date().getTime() - performance.timing.navigationStart;
-        console.log(page_load_time + "ms -- Player loaded!");
-
-        function invokeVideoPlayer(url) {
-
-            page_load_time = new Date().getTime() - performance.timing.navigationStart;
-            console.log(page_load_time + "ms -- Prebid VAST url = " + url);
-
-            /* Access the player instance by calling videojs() and passing
-               in the player's ID. Add a ready listener to make sure the
-               player is ready before interacting with it. */
-
-            videojs("vid1").ready(function () {
-
-                page_load_time = new Date().getTime() - performance.timing.navigationStart;
-                console.log(page_load_time + "ms -- Player is ready!");
-
-                /* PASS SETTINGS TO VAST PLUGIN
-  
-                   Pass in a JSON object to the player's vastClient (defined
-                   by the VAST/VPAID plugin we're using). The requires an
-                   adTagUrl, which will be the URL returned by Prebid. You
-                   can view all the options available for the vastClient
-                   here:
-  
-                   https://github.com/MailOnline/videojs-vast-vpaid#options */
-
-                var player = this;
-                var vastAd = player.vastClient({
-                    adTagUrl: url,
-                    playAdAlways: true,
-                    verbosity: 4,
-                    vpaidFlashLoaderPath: "https://github.com/MailOnline/videojs-vast-vpaid/blob/RELEASE/bin/VPAIDFlash.swf?raw=true",
-                    autoplay: true
+        /* ---------- 4. Функция, которая делает аукцион и запрашивает рекламу ----------- */
+        function requestAds() {
+            pbjs.que.push(() => {
+                pbjs.addAdUnits([adUnit]);
+                pbjs.requestBids({
+                    timeout: 1500,
+                    adUnitCodes: [adUnit.code],
+                    bidsBackHandler: function () {
+                        const vastUrl = buildGamUrl();
+                        player.ima({
+                            adTagUrl: vastUrl,
+                            timeout: 3000,
+                            debug: false
+                        });
+                        // Запрос самой рекламы
+                        player.ima.requestAds();
+                    }
                 });
-
-                page_load_time = new Date().getTime() - performance.timing.navigationStart;
-                console.log(page_load_time + "ms -- Prebid VAST tag inserted!");
-
-                player.muted(true);
-                player.play();
-
-                page_load_time = new Date().getTime() - performance.timing.navigationStart;
-                console.log(page_load_time + "ms -- invokeVideoPlayer complete!");
-
             });
         }
 
+        /* ---------- 5. Первая загрузка + расписание mid-roll-ов ----------- */
+        player.one('loadedmetadata', () => {
+            requestAds(); // преролл
+
+            // Каждые 30 сек — новый аукцион + mid-roll
+            let nextBreak = 30;
+            player.on('timeupdate', () => {
+                if (player.currentTime() >= nextBreak) {
+                    nextBreak += 30;
+                    requestAds();
+                }
+            });
+        });
     </script>
 </body>
 
