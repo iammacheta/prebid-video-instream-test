@@ -2,190 +2,145 @@
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Video.js + Prebid.js instream example</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+    <script async
+        src="https://cdn.jsdelivr.net/gh/iammacheta/prebidjs-video-code@c6d463e3404bdbf5099e45e39f18fe0659663dfd/prebid.js"></script>
+    <!-- use recent version of videojs to ensure proper functioning with the iOS devices -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/video.js/6.4.0/video-js.css">
+    <script type="text/javascript" src="https://cdnjs.cloudflare.com/ajax/libs/video.js/6.4.0/video.js"></script>
+    <!-- videojs-vast-vpaid -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/videojs-vast-vpaid/2.0.2/videojs.vast.vpaid.min.css"
+        rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-vast-vpaid/2.0.2/videojs_5.vast.vpaid.min.js"></script>
 
-    <!-- ─────  Video.js + ad-plugin CSS  ───── -->
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/video.js@8.23.3/dist/video-js.min.css">
-    <link rel="stylesheet"
-        href="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/7.5.2/videojs-contrib-ads.min.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/videojs-ima/2.3.0/videojs.ima.css">
-
-    <!-- ─────  Core libraries  ───── -->
-    <script async src="https://cdn.jsdelivr.net/npm/prebid.js@latest/dist/not-for-prod/prebid.js"></script>
-    <script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
-
-    <!--  Video.js + ad helpers  -->
-    <script src="https://cdn.jsdelivr.net/npm/video.js@8.23.3/dist/video.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/7.5.2/videojs.ads.min.js"></script>
-    <script src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-ima/2.3.0/videojs.ima.min.js"></script>
-</head>
-
-<body>
-
-    <h2>Prebid instream ad running in Video.js</h2>
-
-    <!--  The content player -->
-    <video id="content_video" class="video-js vjs-default-skin" controls width="640" height="480"
-        poster="https://peach.blender.org/wp-content/uploads/title_anouncement.jpg">
-        <source src="https://test-videos.co.uk/vids/bigbuckbunny/mp4/h264/720/Big_Buck_Bunny_720_10s_1MB.mp4"
-            type="video/mp4">
-    </video>
-
-    <!-- ############### Prebid + GPT setup ############### -->
     <script>
-        /* ----  ad-size helpers (unchanged from original example) ---- */
-        const div_1_sizes = [[300, 250], [300, 600]];
-        const div_2_sizes = [[728, 90], [970, 250]];
+        var pbjs = pbjs || {};
+        pbjs.que = pbjs.que || [];
 
-        const PREBID_TIMEOUT = 1000;
-        const FAILSAFE_TIMEOUT = 3000;
 
-        /* ----  DISPLAY adUnits (keep if you still want banner demand) ---- */
-        const adUnits = [
-            {
-                code: '/19968336/header-bid-tag-0',
-                mediaTypes: { banner: { sizes: div_1_sizes } },
-                bids: [{ bidder: 'appnexus', params: { placementId: 13144370 } }]
-            },
-            {
-                code: '/19968336/header-bid-tag-1',
-                mediaTypes: { banner: { sizes: div_2_sizes } },
-                bids: [{ bidder: 'appnexus', params: { placementId: 13144370 } }]
-            }
-        ];
+        /* Prebid video ad unit */
 
-        /* ----  VIDEO adUnit ---- */
-        const videoAdUnit = {
+        var videoAdUnit = {
             code: 'video1',
             mediaTypes: {
                 video: {
-                    playerSize: [640, 480],
                     context: 'instream',
-                    plcmt: 2
+                    playerSize: [640, 480],
+                    mimes: ['video/mp4'],
+                    protocols: [1, 2, 3, 4, 5, 6, 7, 8],
+                    playbackmethod: [2],
+                    skip: 1
                 }
             },
             bids: [{
                 bidder: 'appnexus',
                 params: {
-                    placementId: 13232361,          // <--- your own placement ID here
-                    video: {
-                        skipppable: true,
-                        playback_method: ['auto_play_sound_off']
-                    }
+                    placementId: 13232361
                 }
             }]
         };
 
-        /* ----  GPT safe-load ---- */
-        var googletag = googletag || {};
-        googletag.cmd = googletag.cmd || [];
-        googletag.cmd.push(() => googletag.pubads().disableInitialLoad());
-
-        /* ----  Prebid init ---- */
-        var pbjs = pbjs || {};
-        pbjs.que = pbjs.que || [];
-
-        /*  a temp holder in case the VAST URL comes back early  */
-        let pendingVastUrl = null;
-
-        /*  Predeclare player invocation so we can call it later  */
-        function invokeVideoPlayer(vastUrl) {
-            pendingVastUrl = vastUrl; // save until player is ready
-        }
-
         pbjs.que.push(function () {
-            pbjs.addAdUnits(adUnits);
             pbjs.addAdUnits(videoAdUnit);
+
             pbjs.setConfig({
                 debug: true,
-                cache: { url: 'https://prebid.adnxs.com/pbc/v1/cache' }
-            });
-            pbjs.requestBids({
-                bidsBackHandler: initAdserver,
-                timeout: PREBID_TIMEOUT
-            });
-        });
-
-        /*  ----  After auctions finish ---- */
-        function initAdserver() {
-            if (pbjs.initAdserverSet) return;
-            pbjs.initAdserverSet = true;
-
-            /*  pass targeting for display slots, if any  */
-            const displayCodes = adUnits.map(u => u.code);
-            googletag.cmd.push(function () {
-                pbjs.setTargetingForGPTAsync(displayCodes);
-                googletag.pubads().refresh();
-            });
-
-            /*  Build a VAST URL for our instream placement  */
-            const vastUrl = pbjs.adServers.dfp.buildVideoUrl({
-                adUnit: videoAdUnit,
-                params: {
-                    iu: '/19968336/prebid_cache_video_adunit',
-                    output: 'vast'
+                cache: {
+                    url: 'https://prebid.adnxs.com/pbc/v1/cache'
                 }
             });
 
-            /*  hand that URL to the player  */
-            invokeVideoPlayer(vastUrl);
-        }
-
-        /*  failsafe  */
-        setTimeout(initAdserver, FAILSAFE_TIMEOUT);
-
-        /*  GPT display slots (banners)  */
-        googletag.cmd.push(function () {
-            googletag.defineSlot('/19968336/header-bid-tag-0', div_1_sizes, 'div-1').addService(googletag.pubads());
-            googletag.defineSlot('/19968336/header-bid-tag-1', div_2_sizes, 'div-2').addService(googletag.pubads());
-            googletag.pubads().enableSingleRequest();
-            googletag.enableServices();
-        });
-    </script>
-
-    <!-- ############### Video.js player bootstrap ############### -->
-    <script>
-        /*  create the player once the DOM is ready  */
-        const player = videojs('content_video');
-        player.ready(function () {
-
-            /* if Prebid already gave us a tag, wire it up now */
-            if (pendingVastUrl) setupIMA(pendingVastUrl);
-
-            /* otherwise we’ll wait for invokeVideoPlayer() to be called */
-        });
-
-        /*  expose to Prebid callback  */
-        function invokeVideoPlayer(vastUrl) {
-            if (player.readyState() > 0) {
-                setupIMA(vastUrl);
-            } else {
-                pendingVastUrl = vastUrl; // will be picked up in player.ready()
-            }
-        }
-
-        /*  small helper that glues IMA to Video.js  */
-        function setupIMA(vastUrl) {
-            player.ima({
-                adTagUrl: vastUrl,      // Prebid-generated VAST
-                debug: true
+            pbjs.requestBids({
+                bidsBackHandler: function (bids) {
+                    var videoUrl = pbjs.adServers.dfp.buildVideoUrl({
+                        adUnit: videoAdUnit,
+                        params: {
+                            iu: '/19968336/prebid_cache_video_adunit',
+                            cust_params: {
+                                section: 'blog',
+                                anotherKey: 'anotherValue'
+                            },
+                            output: 'vast'
+                        }
+                    });
+                    invokeVideoPlayer(videoUrl);
+                }
             });
+        });
 
-            // auto-start content; the IMA plugin will pause and handle preroll
-            player.play();
-        }
     </script>
+</head>
 
-    <!-- Optional basic banner demo (kept from original) -->
-    <h2 style="margin-top:2rem">Basic Prebid banner test</h2>
-    <h5>Div-1</h5>
-    <div id="div-1"></div>
-    <h5>Div-2</h5>
-    <div id="div-2"></div>
+<body>
+    <div class="example-video-container">
+        <video id="vid1" class="video-js vjs-default-skin vjs-big-play-centered" controls data-setup='{}' width='640'
+            height='480'>
+            <source src="https://vjs.zencdn.net/v/oceans.mp4" type='video/mp4' />
+            <source src="https://vjs.zencdn.net/v/oceans.webm" type='video/webm' />
+            <source src="https://vjs.zencdn.net/v/oceans.ogv" type='video/ogg' />
+        </video>
+    </div>
 
+
+    <script>
+        var page_load_time;
+
+        page_load_time = new Date().getTime() - performance.timing.navigationStart;
+        console.log(page_load_time + "ms -- Player loading!");
+
+        var vid1 = videojs('vid1');
+
+        page_load_time = new Date().getTime() - performance.timing.navigationStart;
+        console.log(page_load_time + "ms -- Player loaded!");
+
+        function invokeVideoPlayer(url) {
+
+            page_load_time = new Date().getTime() - performance.timing.navigationStart;
+            console.log(page_load_time + "ms -- Prebid VAST url = " + url);
+
+            /* Access the player instance by calling videojs() and passing
+               in the player's ID. Add a ready listener to make sure the
+               player is ready before interacting with it. */
+
+            videojs("vid1").ready(function () {
+
+                page_load_time = new Date().getTime() - performance.timing.navigationStart;
+                console.log(page_load_time + "ms -- Player is ready!");
+
+                /* PASS SETTINGS TO VAST PLUGIN
+  
+                   Pass in a JSON object to the player's vastClient (defined
+                   by the VAST/VPAID plugin we're using). The requires an
+                   adTagUrl, which will be the URL returned by Prebid. You
+                   can view all the options available for the vastClient
+                   here:
+  
+                   https://github.com/MailOnline/videojs-vast-vpaid#options */
+
+                var player = this;
+                var vastAd = player.vastClient({
+                    adTagUrl: url,
+                    playAdAlways: true,
+                    verbosity: 4,
+                    vpaidFlashLoaderPath: "https://github.com/MailOnline/videojs-vast-vpaid/blob/RELEASE/bin/VPAIDFlash.swf?raw=true",
+                    autoplay: true
+                });
+
+                page_load_time = new Date().getTime() - performance.timing.navigationStart;
+                console.log(page_load_time + "ms -- Prebid VAST tag inserted!");
+
+                player.muted(true);
+                player.play();
+
+                page_load_time = new Date().getTime() - performance.timing.navigationStart;
+                console.log(page_load_time + "ms -- invokeVideoPlayer complete!");
+
+            });
+        }
+
+    </script>
 </body>
 
 </html>
