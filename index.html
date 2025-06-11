@@ -1,60 +1,78 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="ru">
 
 <head>
     <meta charset="utf-8" />
-    <title>Video.js + Prebid Video + GAM demo</title>
+    <title>Video.js + Prebid mid-roll every 30 s</title>
 
-    <!-- Video.js -->
-    <link href="https://vjs.zencdn.net/8.11.4/video-js.css" rel="stylesheet" />
-    <script src="https://vjs.zencdn.net/8.11.4/video.min.js"></script>
+    <!-- ▸ Video.js -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.11.7/video-js.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/video.js/8.11.7/video.min.js"></script>
 
-    <!-- IMA SDK + плагины -->
-    <script src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/videojs-contrib-ads@6"></script>
-    <script src="https://cdn.jsdelivr.net/npm/videojs-ima@2"></script>
-    <!-- ad-schedule-plugin удобно описывает mid-roll-ы -->
-    <script src="https://cdn.jsdelivr.net/npm/@video-js/ad-schedule-plugin"></script>
+    <!-- ▸ Плей-лист -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-playlist/5.2.0/videojs-playlist.min.js"></script>
 
-    <!-- Google Publisher Tag -->
-    <script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js"></script>
+    <!-- ▸ Рекламный стек: contrib-ads + Google IMA -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/6.9.0/videojs-contrib-ads.min.js"></script>
+    <script src="//imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-ima/1.10.1/videojs.ima.min.js"></script>
 
-    <!-- Prebid.js (соберите custom-build: dfpVideo + сопоставимые bidder-модули) -->
-    <script async
-        src="https://cdn.jsdelivr.net/gh/iammacheta/prebidjs-video-code@c6d463e3404bdbf5099e45e39f18fe0659663dfd/prebid.js"></script>
+    <!-- ▸ Prebid.js -->
+    <script async src="https://cdn.jsdelivr.net/npm/prebid.js@latest/dist/not-for-prod/prebid.js"></script>
 
     <style>
         body {
             margin: 0;
-            background: #000
+            padding: 20px;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #fafafa
         }
 
         .video-js {
-            width: 100%;
-            height: 56.25vw;
-            max-height: 100vh
+            width: 640px;
+            height: 360px;
+            margin: 0 auto
         }
     </style>
 </head>
 
 <body>
 
-    <video id="content_video" class="video-js vjs-default-skin" playsinline muted autoplay preload="auto" controls>
-        <!-- контентный источник; нужен даже для autostart -->
-        <source src="https://vjs.zencdn.net/v/oceans.mp4" type="video/mp4" />
-    </video>
+    <!-- ▶ Плеер -->
+    <video id="mainPlayer" class="video-js vjs-big-play-centered" playsinline muted controls></video>
 
     <script>
-        /* ---------- 1. Конфигурация Prebid ----------- */
-        const adUnit = {
-            code: 'instream_adunit',
+        /***************** 1. Список контента ******************************/
+        const playlist = [
+            { sources: [{ src: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4', type: 'video/mp4' }] },
+            { sources: [{ src: 'https://vjs.zencdn.net/v/oceans.mp4', type: 'video/mp4' }] },
+            { sources: [{ src: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', type: 'video/mp4' }] }
+        ];
+
+        /***************** 2. Инициализация плеера *************************/
+        const player = videojs('mainPlayer', {
+            autoplay: true,          // требует muted=true
+            controls: true
+        });
+
+        player.playlist(playlist);      // автоперелистывание
+        player.playlist.autoadvance(0); // «0» = мгновенно после конца
+
+        /***************** 3. IMA-SDK + contrib-ads ************************/
+        player.ima({
+            adTagUrl: '',             // подставим позже из Prebid
+            autoPlayAdBreaks: false   // паузами управляем сами
+        });
+        player.ima.setAdBreakReadyListener(() => player.ima.playAdBreak());
+
+        /***************** 4. Prebid: видео adUnit *************************/
+        const pbVideoUnit = {
+            code: 'outstream1',
             mediaTypes: {
                 video: {
                     context: 'instream',
                     playerSize: [640, 360],
-                    mimes: ['video/mp4'],
-                    protocols: [2, 3, 5],      // VAST 2/3/4
-                    api: [2]                 // VPAID 2 JS
+                    mimes: ['video/mp4']
                 }
             },
             bids: [
@@ -103,64 +121,47 @@
             ]
         };
 
-        /* ---------- 2. Инициализируем Video.js + IMA ----------- */
-        const player = videojs('content_video', { muted: true, autoplay: 'muted', controls: true });
-        player.ready(() => {
-            // IMA должен один раз инициализироваться по пользовательскому действию
-            player.one('play', () => player.ima.initializeAdDisplayContainer());
+        pbjs.que.push(() => pbjs.addAdUnits(pbVideoUnit));
+
+        /***************** 5. Логика «реклама каждые 30 с» ****************/
+        const BREAK_INTERVAL = 30;   // сек
+        let nextBreak = BREAK_INTERVAL;
+
+        player.on('timeupdate', () => {
+            if (!player.ima.adsActive && player.currentTime() >= nextBreak) {
+                nextBreak += BREAK_INTERVAL;
+                callPrebidAndPlayAd();
+            }
         });
 
-        /* ---------- 3. Вспом. функция: собираем URL для GAM ----------- */
-        function buildGamUrl() {
-            // Получаем таргетинги от Prebid в формате "k=v&k2=v2"
-            const custParams = pbjs.getAdserverTargeting()
-                ? encodeURIComponent(Object.entries(pbjs.getAdserverTargeting()[adUnit.code] || {})
-                    .map(([k, v]) => `${k}=${v}`).join('&'))
-                : '';
+        // сбросить таймер на каждом новом видео
+        player.on('playlistitem', () => { nextBreak = BREAK_INTERVAL; });
 
-            // VMAP с правилом mid-roll каждые 30 с
-            return `https://pubads.g.doubleclick.net/gampad/ads?` +
-                `iu=//19968336/prebid_cache_video_adunit` +        // Placement в GAM
-                `&description_url=https%3A%2F%iammacheta.github.io` +
-                `&env=vp&output=xml_vmap1&ad_rule=1` +     // VMAP+Ad Rules
-                `&cmsid=YOUR_CMSID&vid=0&correlator=${Date.now()}` +
-                (custParams ? `&cust_params=${custParams}` : '');
-        }
-
-        /* ---------- 4. Функция, которая делает аукцион и запрашивает рекламу ----------- */
-        function requestAds() {
+        /***************** 6. Prebid-аукцион для каждой паузы *************/
+        function callPrebidAndPlayAd() {
             pbjs.que.push(() => {
-                pbjs.addAdUnits([adUnit]);
                 pbjs.requestBids({
-                    timeout: 1500,
-                    adUnitCodes: [adUnit.code],
-                    bidsBackHandler: function () {
-                        const vastUrl = buildGamUrl();
-                        player.ima({
-                            adTagUrl: vastUrl,
-                            timeout: 3000,
-                            debug: false
+                    adUnitCodes: [pbVideoUnit.code],
+                    bidsBackHandler: () => {
+                        const vastUrl = pbjs.adServers.dfp.buildVideoUrl({
+                            adUnit: pbVideoUnit,
+                            params: {
+                                iu: '/21775744923/external/single_preroll_skippable',   // TODO: ваш ad unit path в GAM
+                                output: 'vast'
+                            }
                         });
-                        // Запрос самой рекламы
+
+                        // Вставляем новый master-URL в IMA и запрашиваем рекламу
+                        player.ima.changeAdTag(vastUrl);
                         player.ima.requestAds();
+
+                        // помечаем победителя использованным (чтобы не переиграть повторно)
+                        const winning = pbjs.getHighestCpmBids(pbVideoUnit.code)[0];
+                        if (winning) pbjs.markBidAsUsed(winning);
                     }
                 });
             });
         }
-
-        /* ---------- 5. Первая загрузка + расписание mid-roll-ов ----------- */
-        player.one('loadedmetadata', () => {
-            requestAds(); // преролл
-
-            // Каждые 30 сек — новый аукцион + mid-roll
-            let nextBreak = 30;
-            player.on('timeupdate', () => {
-                if (player.currentTime() >= nextBreak) {
-                    nextBreak += 30;
-                    requestAds();
-                }
-            });
-        });
     </script>
 </body>
 
