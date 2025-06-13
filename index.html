@@ -2,144 +2,152 @@
 <html lang="ru">
 
 <head>
-    <meta charset="utf-8" />
-    <title>Video.js + Prebid mid-roll every 30 s</title>
+    <meta charset="utf-8">
+    <title>Prebid VideoJS – преролл + каждые 30 с</title>
 
-    <!-- ▸ Video.js -->
-    <link href="https://cdn.jsdelivr.net/npm/video.js@8.23.3/dist/video-js.min.css" rel="stylesheet">
-    <script src="https://cdn.jsdelivr.net/npm/video.js@8.23.3/dist/video.min.js"></script>
+    <!-- Prebid (dev build, только для теста) -->
+    <script async src="https://cdn.jsdelivr.net/npm/prebid.js@latest/dist/not-for-prod/prebid.js"></script>
 
-    <!-- ▸ Плагин плей-листа -->
-    <script src="https://cdn.jsdelivr.net/npm/videojs-playlist@5.2.0/dist/videojs-playlist.min.js"></script>
-
-    <!-- ▸ contrib-ads + Google IMA -->
-    <script src="https://cdn.jsdelivr.net/npm/videojs-contrib-ads@6.9.0/dist/videojs-contrib-ads.min.js"></script>
-    <script src="//imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/videojs-ima@1.10.1/dist/videojs.ima.min.js"></script>
-
-    <!-- ▸ Prebid.js -->
-    <script async
-        src="https://cdn.jsdelivr.net/gh/iammacheta/prebidjs-video-code@c6d463e3404bdbf5099e45e39f18fe0659663dfd/prebid.js"></script>
+    <!-- VideoJS + IMA -->
+    <link href="https://vjs.zencdn.net/7.20.2/video-js.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/6.9.0/videojs-contrib-ads.css"
+        rel="stylesheet">
+    <script src="https://vjs.zencdn.net/7.20.2/video.min.js"></script>
+    <script src="https://imasdk.googleapis.com/js/sdkloader/ima3.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-contrib-ads/6.9.0/videojs-contrib-ads.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/videojs-ima/1.11.0/videojs.ima.js"></script>
 
     <style>
         body {
             margin: 0;
-            padding: 20px;
-            font-family: Arial, Helvetica, sans-serif;
-            background: #fafafa
+            background: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh
         }
 
-        .video-js {
-            width: 640px;
-            height: 360px;
-            margin: 0 auto
+        .example-video-container {
+            width: 75vw;
+            max-width: 960px
+        }
+
+        video {
+            width: 100%;
+            height: 100%
         }
     </style>
 </head>
 
 <body>
-
-    <!-- ▶ Плеер -->
-    <video id="mainPlayer" class="video-js vjs-big-play-centered" playsinline muted controls></video>
+    <div class="example-video-container">
+        <video-js id="player" class="vjs-big-play-centered"></video-js>
+    </div>
 
     <script>
-        /* ---------- 1. Контентный плей-лист ---------- */
-        const playlist = [
-            { sources: [{ src: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4', type: 'video/mp4' }] },
-            { sources: [{ src: 'https://vjs.zencdn.net/v/oceans.mp4', type: 'video/mp4' }] },
-            { sources: [{ src: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4', type: 'video/mp4' }] }
-        ];
+        /*****************************************************************
+         * 1 — adUnit (можно добавить других bidders)
+         *****************************************************************/
+        const adUnits = [{
+            code: 'div-gpt-ad-video-0',
+            mediaTypes: { video: {} },
+            video: { divId: 'player' },
+            bids: [{ bidder: 'ix', params: { siteId: 'YOUR_SITE_ID' } }]   // ← замените на свои
+        }];
 
-        /* ---------- 2. Плеер + plugin ---------- */
-        const player = videojs('mainPlayer', { autoplay: true, controls: true });
-        player.playlist(playlist);          // <-- теперь метод существует
-        player.playlist.autoadvance(0);
+        /*****************************************************************
+         * 2 — Prebid setup
+         *****************************************************************/
+        const pbjs = window.pbjs = window.pbjs || {};
+        pbjs.que = pbjs.que || [];
 
-        /* ---------- 3. IMA-SDK ---------- */
-        player.ima({ adTagUrl: '', autoPlayAdBreaks: false });
-        player.ima.setAdBreakReadyListener(() => player.ima.playAdBreak());
-
-        /* ---------- 4. Prebid video adUnit ---------- */
-        const pbVideoUnit = {
-            code: 'outstream1',
-            mediaTypes: { video: { context: 'instream', playerSize: [640, 360], mimes: ['video/mp4'] } },
-            bids: [
-                {
-                    bidder: 'appnexus',
-                    params: {
-                        placementId: 13232361
-                    }
-                },
-                {
-                    bidder: "adagio",
-                    params: {
-                        organizationId: "1458",
-                        site: "mobalytics-gg"
-                    }
-                },
-                {
-                    bidder: "oms",
-                    params: {
-                        publisherId: "21048"
-                    }
-                },
-                {
-                    bidder: "onetag",
-                    params: {
-                        pubId: "80ac484cd63fd7e",
-                        ext: {
-                            placement_name: "web-video"
+        pbjs.que.push(function () {
+            pbjs.setConfig({
+                video: {
+                    providers: [{
+                        divId: 'player',
+                        vendorCode: 2,
+                        playerConfig: {
+                            params: {
+                                adPluginConfig: { adLabel: 'Prebid Video', numRedirects: 10 },
+                                vendorConfig: { controls: true, autoplay: true, preload: 'auto' }
+                            }
+                        },
+                        adServer: {
+                            vendorCode: 'gam',
+                            baseAdTagUrl: 'https://pubads.g.doubleclick.net/gampad/ads?' +
+                                'iu=/21775744923/external/single_preroll_skippable' +
+                                '&sz=640x480&gdfp_req=1&output=vast&unviewed_position_start=1' +
+                                '&env=vp&impl=s&correlator='
                         }
-                    }
+                    }]
                 },
-                {
-                    bidder: "unruly",
-                    params: {
-                        siteId: 287980
-                    }
-                },
-                {
-                    bidder: "vidazoo",
-                    params: {
-                        cId: "67ee7a23e3011c328b218c68",
-                        pId: "59ac17c192832d0011283fe3",
-                        subDomain: "exchange"
-                    }
+                cache: { url: 'https://prebid.adnxs.com/pbc/v1/cache' },
+
+                /* ---------- DEMO-VAST, убрать в продакшне ---------- */
+                debugging: {
+                    enabled: true,
+                    intercept: [{
+                        when: { adUnitCode: 'div-gpt-ad-video-0' },
+                        then: {
+                            cpm: 3.20,
+                            mediaType: 'video',
+                            vastXml:
+                                '<VAST version="3.0"><Ad id="1"><InLine><AdSystem>Demo</AdSystem>' +
+                                '<AdTitle>Sample</AdTitle><Creatives><Creative><Linear>' +
+                                '<Duration>00:00:15</Duration><MediaFiles>' +
+                                '<MediaFile type="video/mp4" delivery="progressive" width="640" height="360">' +
+                                'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4' +
+                                '</MediaFile></MediaFiles></Linear></Creative></Creatives></InLine></Ad></VAST>'
+                        }
+                    }]
                 }
-            ]
-        };
-        pbjs.que.push(() => pbjs.addAdUnits(pbVideoUnit));
+            });
 
-        /* ---------- 5. Mid-roll каждые 30 c ---------- */
-        const BREAK_INTERVAL = 30;
-        let nextBreak = BREAK_INTERVAL;
+            /***************** ПЕРВЫЙ (preroll) аукцион *****************/
+            pbjs.addAdUnits(adUnits);
+            pbjs.requestBids(adUnits);
 
-        player.on('timeupdate', () => {
-            if (!player.ima.adsActive && player.currentTime() >= nextBreak) {
-                nextBreak += BREAK_INTERVAL;
-                callPrebidAndPlayAd();
-            }
-        });
-        player.on('playlistitem', () => { nextBreak = BREAK_INTERVAL; });
+            /***************** player ready → контент + mid-roll цикл *****/
+            pbjs.onEvent('videoSetupComplete', () => {
+                const player = videojs('player');
 
-        function callPrebidAndPlayAd() {
-            pbjs.que.push(() => {
-                pbjs.requestBids({
-                    adUnitCodes: [pbVideoUnit.code],
-                    bidsBackHandler: () => {
-                        const vastUrl = pbjs.adServers.dfp.buildVideoUrl({
-                            adUnit: pbVideoUnit,
-                            params: { iu: '/21775744923/external/single_preroll_skippable', output: 'vast' }     // TODO
-                        });
-                        player.ima.changeAdTag(vastUrl);
-                        player.ima.requestAds();
+                player.loadMedia({
+                    src: 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
+                    type: 'video/mp4',
+                    id: 'bbb',
+                    title: 'Big Buck Bunny'
+                });
 
-                        const win = pbjs.getHighestCpmBids(pbVideoUnit.code)[0];
-                        if (win) pbjs.markBidAsUsed(win);
+                /* --------- 30-секундный таймер ------------ */
+                let nextAdTime = 30;   // первая пауза
+                let adOrRequest = false; // false → контент свободен, можно запускать
+
+                /* adstart → контент прерван, реклама началась */
+                player.on('adstart', () => adOrRequest = true);
+
+                /* adend   → реклама закончилась, снимаем блок и планируем след. паузу */
+                player.on('adend', () => {
+                    adOrRequest = false;
+                    nextAdTime += 30;    // следующая пауза
+                });
+
+                /* Если аукцион вернулся без video-ставки */
+                pbjs.onEvent('videoBidError', () => {
+                    adOrRequest = false; // снимем блокировку
+                    nextAdTime += 30;    // сдвинем, чтобы снова попробовать позже
+                });
+
+                /* Каждое обновление позиции контента */
+                player.on('timeupdate', () => {
+                    if (!adOrRequest && player.currentTime() >= nextAdTime) {
+                        console.log('⏰ mid-roll @', Math.floor(player.currentTime()), 'сек.');
+                        adOrRequest = true;              // блокируем до ответа аукциона
+                        pbjs.requestBids(adUnits);       // <<< та самая «ручка» показа рекламы
                     }
                 });
             });
-        }
+        });
     </script>
 </body>
 
