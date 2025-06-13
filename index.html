@@ -53,6 +53,17 @@
     </div>
 
     <script>
+
+        window.googlefc = window.googlefc || {};
+        googlefc.callbackQueue = googlefc.callbackQueue || [];
+
+        googlefc.callbackQueue.push({
+            'CONSENT_DATA_READY': () => {
+                // safe to run Prebid and GPT now
+                
+            }
+        });
+
         /*****************************************************************
          * 1 — adUnit (можно добавить других bidders)
          *****************************************************************/
