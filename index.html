@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8">
     <title>Prebid VideoJS – преролл + каждые 30 с</title>
-    
+
     <script async src="https://securepubads.g.doubleclick.net/tag/js/gpt.js" crossorigin="anonymous"></script>
 
     <!-- Prebid build -->
@@ -48,7 +48,8 @@
 <body>
     <div class="example-video-container">
         <!-- width / height для надёжности + CSS-резерв -->
-        <video-js id="player" class="vjs-big-play-centered" width="400" height="225"></video-js>
+        <video-js id="player" class="vjs-big-play-centered" width="400" height="225" autoplay muted
+            playsinline></video-js>
     </div>
 
     <script>
@@ -57,7 +58,15 @@
          *****************************************************************/
         const adUnits = [{
             code: 'div-gpt-ad-prebid-video-0',
-            mediaTypes: { video: {} },
+            mediaTypes: {
+                video: {
+                    context: 'instream',   // технический способ вызова плеера
+                    plcmt: 1,              // instream по OpenRTB 2.6
+                    playerSize: [640, 480],
+                    mimes: ['video/mp4'],
+                    startdelay: 0
+                }
+            },
             video: { divId: 'player' },
             bids: [
                 { bidder: 'appnexus', params: { placementId: 13232361 } },
