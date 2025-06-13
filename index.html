@@ -5,8 +5,9 @@
     <meta charset="utf-8">
     <title>Prebid VideoJS – преролл + каждые 30 с</title>
 
-    <!-- Prebid (dev build, только для теста) -->
-    <script async src="https://cdn.jsdelivr.net/npm/prebid.js@latest/dist/not-for-prod/prebid.js"></script>
+    <!-- Prebid build -->
+    <script async
+        src="https://cdn.jsdelivr.net/gh/iammacheta/prebidjs-video-code@c6d463e3404bdbf5099e45e39f18fe0659663dfd/prebid.js"></script>
 
     <!-- VideoJS + IMA -->
     <link href="https://vjs.zencdn.net/7.20.2/video-js.css" rel="stylesheet">
@@ -24,24 +25,28 @@
             display: flex;
             justify-content: center;
             align-items: center;
-            height: 100vh
+            height: 100vh;
         }
 
+        /* ▸ контейнер для плеера (точно 400 × 225) */
         .example-video-container {
-            width: 75vw;
-            max-width: 960px
+            width: 400px;
+            height: 225px;
         }
 
-        video {
+        /* ▸ сам плеер растягиваем на весь контейнер */
+        .example-video-container .video-js,
+        .example-video-container video {
             width: 100%;
-            height: 100%
+            height: 100%;
         }
     </style>
 </head>
 
 <body>
     <div class="example-video-container">
-        <video-js id="player" class="vjs-big-play-centered"></video-js>
+        <!-- width / height для надёжности + CSS-резерв -->
+        <video-js id="player" class="vjs-big-play-centered" width="400" height="225"></video-js>
     </div>
 
     <script>
@@ -49,10 +54,17 @@
          * 1 — adUnit (можно добавить других bidders)
          *****************************************************************/
         const adUnits = [{
-            code: 'div-gpt-ad-video-0',
+            code: 'div-gpt-ad-prebid-video-0',
             mediaTypes: { video: {} },
             video: { divId: 'player' },
-            bids: [{ bidder: 'ix', params: { siteId: 'YOUR_SITE_ID' } }]   // ← замените на свои
+            bids: [
+                { bidder: 'appnexus', params: { placementId: 13232361 } },
+                { bidder: 'adagio', params: { organizationId: '1458', site: 'mobalytics-gg' } },
+                { bidder: 'oms', params: { publisherId: '21048' } },
+                { bidder: 'onetag', params: { pubId: '80ac484cd63fd7e', ext: { placement_name: 'web-video' } } },
+                { bidder: 'unruly', params: { siteId: 287980 } },
+                { bidder: 'vidazoo', params: { cId: '67ee7a23e3011c328b218c68', pId: '59ac17c192832d0011283fe3', subDomain: 'exchange' } }
+            ]
         }];
 
         /*****************************************************************
@@ -75,7 +87,8 @@
                         },
                         adServer: {
                             vendorCode: 'gam',
-                            baseAdTagUrl: 'https://pubads.g.doubleclick.net/gampad/ads?' +
+                            baseAdTagUrl:
+                                'https://pubads.g.doubleclick.net/gampad/ads?' +
                                 'iu=/21775744923/external/single_preroll_skippable' +
                                 '&sz=640x480&gdfp_req=1&output=vast&unviewed_position_start=1' +
                                 '&env=vp&impl=s&correlator='
@@ -84,24 +97,6 @@
                 },
                 cache: { url: 'https://prebid.adnxs.com/pbc/v1/cache' },
 
-                /* ---------- DEMO-VAST, убрать в продакшне ---------- */
-                debugging: {
-                    enabled: true,
-                    intercept: [{
-                        when: { adUnitCode: 'div-gpt-ad-video-0' },
-                        then: {
-                            cpm: 3.20,
-                            mediaType: 'video',
-                            vastXml:
-                                '<VAST version="3.0"><Ad id="1"><InLine><AdSystem>Demo</AdSystem>' +
-                                '<AdTitle>Sample</AdTitle><Creatives><Creative><Linear>' +
-                                '<Duration>00:00:15</Duration><MediaFiles>' +
-                                '<MediaFile type="video/mp4" delivery="progressive" width="640" height="360">' +
-                                'https://storage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4' +
-                                '</MediaFile></MediaFiles></Linear></Creative></Creatives></InLine></Ad></VAST>'
-                        }
-                    }]
-                }
             });
 
             /***************** ПЕРВЫЙ (preroll) аукцион *****************/
