@@ -9,7 +9,7 @@
 
     <!-- Prebid build -->
     <script async
-        src="https://cdn.jsdelivr.net/gh/iammacheta/prebidjs-video-code@12066f63205c01e3cbac9a7c62aacf26a379818b/prebid.js"></script>
+        src="https://cdn.jsdelivr.net/gh/iammacheta/prebidjs-video-code@99f2a73edad1452c67d5ac858cf6afa51a6b73f9/prebid.js"></script>
 
     <!-- VideoJS + IMA -->
     <link href="https://vjs.zencdn.net/7.20.2/video-js.css" rel="stylesheet">
@@ -77,7 +77,7 @@
                     mimes: ['video/mp4'],
                     startdelay: 0,
                     maxduration: 30,
-                    protocols: [2,3,5,6],
+                    protocols: [2, 3, 5, 6],
                     linearity: 1
                 }
             },
@@ -125,6 +125,15 @@
                         video: {
                             language: 'en'
                         }
+                    }
+                },
+                {
+                    bidder: "iionads",
+                    params: {
+                        host: "ads-247co.iionads.com",
+                        adUnitId: 42236,
+                        adUnitType: "Video",
+                        publisherId: "2235709"
                     }
                 }
             ]
