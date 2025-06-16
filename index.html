@@ -160,8 +160,16 @@
                         },
                         adServer: {
                             vendorCode: 'gam',
-                            baseAdTagUrl: 'https://pubads.g.doubleclick.net/gampad/ads?iu=/21974715207/prebid_cache_video_adunit'
+                            baseAdTagUrl:
+                                'https://pubads.g.doubleclick.net/gampad/ads?' +
+                                'iu=/21974715207/prebid_cache_video_adunit' +   // ваш ad-unit
+                                '&sz=400x225' +                                // размер плеера
+                                '&impl=s&gdfp_req=1' +                         // схема GAM
+                                '&env=vp' +                                    // video-player
+                                '&output=xml_vast4' +                          // формат ответа
+                                '&unviewed_position_start=1'                   // отложенный показ
                         }
+
                     }]
                 },
                 cache: { url: 'https://prebid.adnxs.com/pbc/v1/cache' },
