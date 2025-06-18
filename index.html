@@ -80,7 +80,8 @@
                     maxduration: 30,
                     protocols: [2, 3, 5, 6],
                     linearity: 1,
-                    placement: 3
+                    placement: 3,
+                    playbackmethod: [6]
                 }
             },
             video: { divId: 'player' },
@@ -206,10 +207,9 @@
                 /* adstart → контент прерван, реклама началась */
                 player.on('adstart', () => adOrRequest = true);
 
-                /* adend   → реклама закончилась, снимаем блок и планируем след. паузу */
+                /* adend   → реклама закончилась, запрашиваем новую */
                 player.on('adend', () => {
-                    adOrRequest = false;
-                    nextAdTime += 30;    // следующая пауза
+                    pbjs.requestBids(adUnits);  // сразу же запрашиваем новый ролик
                 });
 
                 /* Если аукцион вернулся без video-ставки */
