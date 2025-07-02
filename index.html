@@ -189,7 +189,10 @@
             pbjs.addAdUnits(adUnits);
             pbjs.requestBids(adUnits);
 
-            /***************** player ready → контент + mid-roll цикл *****/
+            // фиксируем момент первого запроса
+            let lastBidRequestTs = Date.now();
+
+            /***************** player ready → контент + mid‑roll цикл *****/
             pbjs.onEvent('videoSetupComplete', () => {
                 const player = videojs('player');
 
@@ -200,32 +203,36 @@
                     title: 'Big Buck Bunny'
                 });
 
-                /* --------- 30-секундный таймер ------------ */
-                let nextAdTime = 30;   // первая пауза
-                let adOrRequest = false; // false → контент свободен, можно запускать
+                /* --- управляющие флаги и функции -------------------- */
+                let busyWithAdOrRequest = true; // true → на момент старта уже идёт запрос для преролла
+                const BID_INTERVAL = 30_000;    // 30 000 мс = 30 с
 
-                /* adstart → контент прерван, реклама началась */
-                player.on('adstart', () => adOrRequest = true);
-
-                /* adend   → реклама закончилась, запрашиваем новую */
-                player.on('adend', () => {
-                    pbjs.requestBids(adUnits);  // сразу же запрашиваем новый ролик
-                });
-
-                /* Если аукцион вернулся без video-ставки */
-                pbjs.onEvent('videoBidError', () => {
-                    adOrRequest = false; // снимем блокировку
-                    nextAdTime += 30;    // сдвинем, чтобы снова попробовать позже
-                });
-
-                /* Каждое обновление позиции контента */
-                player.on('timeupdate', () => {
-                    if (!adOrRequest && player.currentTime() >= nextAdTime) {
-                        console.log('⏰ mid-roll @', Math.floor(player.currentTime()), 'сек.');
-                        adOrRequest = true;              // блокируем до ответа аукциона
-                        pbjs.requestBids(adUnits);       // <<< та самая «ручка» показа рекламы
+                function maybeRequestBid() {
+                    const now = Date.now();
+                    if (!busyWithAdOrRequest && (now - lastBidRequestTs) >= BID_INTERVAL) {
+                        console.log('⏰ 30 с истекли → запрашиваем свежий ролик');
+                        busyWithAdOrRequest = true;  // блокируем повторные вызовы
+                        lastBidRequestTs = now;      // фиксируем момент запроса
+                        pbjs.requestBids(adUnits);
                     }
+                }
+
+                /* ---------- События плеера и Prebid ------------------ */
+                player.on('adstart', () => {
+                    busyWithAdOrRequest = true; // реклама пошла → считаем слот занятым
                 });
+
+                player.on('adend', () => {
+                    busyWithAdOrRequest = false; // освободились, ждём 30 с до следующего запроса
+                });
+
+                pbjs.onEvent('videoBidError', () => {
+                    console.warn('⚠️ videoBidError: ставка не получена');
+                    busyWithAdOrRequest = false; // разблокируем, но интервал в 30 с сохраняется
+                });
+
+                /* Каждое обновление позиции контента — проверяем таймер */
+                player.on('timeupdate', maybeRequestBid);
             });
         });
     </script>
