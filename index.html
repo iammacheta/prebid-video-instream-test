@@ -152,11 +152,11 @@
         /*****************************************************************
          * 2 — Prebid setup
          *****************************************************************/
-        const pbjs = window.pbjs = window.pbjs || {};
-        pbjs.que = pbjs.que || [];
+        const vpbjs = window.vpbjs = window.vpbjs || {};
+        vpbjs.que = vpbjs.que || [];
 
-        pbjs.que.push(function () {
-            pbjs.setConfig({
+        vpbjs.que.push(function () {
+            vpbjs.setConfig({
                 video: {
                     providers: [{
                         divId: 'player',
@@ -186,11 +186,11 @@
             });
 
             /***************** ПЕРВЫЙ (preroll) аукцион *****************/
-            pbjs.addAdUnits(adUnits);
-            pbjs.requestBids(adUnits);
+            vpbjs.addAdUnits(adUnits);
+            vpbjs.requestBids(adUnits);
 
             /***************** player ready → контент + mid-roll цикл *****/
-            pbjs.onEvent('videoSetupComplete', () => {
+            vpbjs.onEvent('videoSetupComplete', () => {
                 const player = videojs('player');
 
                 player.loadMedia({
@@ -209,11 +209,11 @@
 
                 /* adend   → реклама закончилась, запрашиваем новую */
                 player.on('adend', () => {
-                    pbjs.requestBids(adUnits);  // сразу же запрашиваем новый ролик
+                    vpbjs.requestBids(adUnits);  // сразу же запрашиваем новый ролик
                 });
 
                 /* Если аукцион вернулся без video-ставки */
-                pbjs.onEvent('videoBidError', () => {
+                vpbjs.onEvent('videoBidError', () => {
                     adOrRequest = false; // снимем блокировку
                     nextAdTime += 30;    // сдвинем, чтобы снова попробовать позже
                 });
@@ -223,7 +223,7 @@
                     if (!adOrRequest && player.currentTime() >= nextAdTime) {
                         console.log('⏰ mid-roll @', Math.floor(player.currentTime()), 'сек.');
                         adOrRequest = true;              // блокируем до ответа аукциона
-                        pbjs.requestBids(adUnits);       // <<< та самая «ручка» показа рекламы
+                        vpbjs.requestBids(adUnits);       // <<< та самая «ручка» показа рекламы
                     }
                 });
             });
