@@ -49,7 +49,7 @@
     <div id="div-gpt-ad-prebid-video-0"></div>
     <div class="example-video-container">
         <!-- width / height для надёжности + CSS-резерв -->
-        <video-js id="player" class="vjs-big-play-centered" width="400" height="225" autoplay muted
+        <video-js id="prebid-video-player" class="vjs-big-play-centered" width="400" height="225" autoplay muted
             playsinline></video-js>
     </div>
 
@@ -84,7 +84,7 @@
                     playbackmethod: [6]
                 }
             },
-            video: { divId: 'player' },
+            video: { divId: 'prebid-video-player' },
             bids: [
                 { bidder: 'appnexus', params: { placementId: 36028569 } },
                 { bidder: 'adagio', params: { organizationId: '1458', site: 'mobalytics-gg' } },
@@ -159,7 +159,7 @@
             pbjs.setConfig({
                 video: {
                     providers: [{
-                        divId: 'player',
+                        divId: 'prebid-video-player',
                         vendorCode: 2,
                         playerConfig: {
                             params: {
@@ -189,12 +189,9 @@
             pbjs.addAdUnits(adUnits);
             pbjs.requestBids(adUnits);
 
-            // фиксируем момент первого запроса
-            let lastBidRequestTs = Date.now();
-
-            /***************** player ready → контент + mid‑roll цикл *****/
+            /***************** player ready → контент + mid-roll цикл *****/
             pbjs.onEvent('videoSetupComplete', () => {
-                const player = videojs('player');
+                const player = videojs('prebid-video-player');
 
                 player.loadMedia({
                     src: 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4',
@@ -203,36 +200,32 @@
                     title: 'Big Buck Bunny'
                 });
 
-                /* --- управляющие флаги и функции -------------------- */
-                let busyWithAdOrRequest = true; // true → на момент старта уже идёт запрос для преролла
-                const BID_INTERVAL = 30_000;    // 30 000 мс = 30 с
+                /* --------- 30-секундный таймер ------------ */
+                let nextAdTime = 30;   // первая пауза
+                let adOrRequest = false; // false → контент свободен, можно запускать
 
-                function maybeRequestBid() {
-                    const now = Date.now();
-                    if (!busyWithAdOrRequest && (now - lastBidRequestTs) >= BID_INTERVAL) {
-                        console.log('⏰ 30 с истекли → запрашиваем свежий ролик');
-                        busyWithAdOrRequest = true;  // блокируем повторные вызовы
-                        lastBidRequestTs = now;      // фиксируем момент запроса
-                        pbjs.requestBids(adUnits);
-                    }
-                }
+                /* adstart → контент прерван, реклама началась */
+                player.on('adstart', () => adOrRequest = true);
 
-                /* ---------- События плеера и Prebid ------------------ */
-                player.on('adstart', () => {
-                    busyWithAdOrRequest = true; // реклама пошла → считаем слот занятым
-                });
-
+                /* adend   → реклама закончилась, запрашиваем новую */
                 player.on('adend', () => {
-                    busyWithAdOrRequest = false; // освободились, ждём 30 с до следующего запроса
+                    pbjs.requestBids(adUnits);  // сразу же запрашиваем новый ролик
                 });
 
+                /* Если аукцион вернулся без video-ставки */
                 pbjs.onEvent('videoBidError', () => {
-                    console.warn('⚠️ videoBidError: ставка не получена');
-                    busyWithAdOrRequest = false; // разблокируем, но интервал в 30 с сохраняется
+                    adOrRequest = false; // снимем блокировку
+                    nextAdTime += 30;    // сдвинем, чтобы снова попробовать позже
                 });
 
-                /* Каждое обновление позиции контента — проверяем таймер */
-                player.on('timeupdate', maybeRequestBid);
+                /* Каждое обновление позиции контента */
+                player.on('timeupdate', () => {
+                    if (!adOrRequest && player.currentTime() >= nextAdTime) {
+                        console.log('⏰ mid-roll @', Math.floor(player.currentTime()), 'сек.');
+                        adOrRequest = true;              // блокируем до ответа аукциона
+                        pbjs.requestBids(adUnits);       // <<< та самая «ручка» показа рекламы
+                    }
+                });
             });
         });
     </script>
