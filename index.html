@@ -49,7 +49,7 @@
     <div id="div-gpt-ad-prebid-video-0"></div>
     <div class="example-video-container">
         <!-- width / height для надёжности + CSS-резерв -->
-        <video-js id="prebid-video-player" class="vjs-big-play-centered" width="400" height="225" autoplay muted
+        <video-js id="player" class="vjs-big-play-centered" width="400" height="225" autoplay muted
             playsinline></video-js>
     </div>
 
@@ -66,7 +66,7 @@
         });
 
         /*****************************************************************
-         * 1 — adUnit
+         * 1 — adUnit (можно добавить других bidders)
          *****************************************************************/
         const adUnits = [{
             code: 'div-gpt-ad-prebid-video-0',
@@ -84,7 +84,7 @@
                     playbackmethod: [6]
                 }
             },
-            video: { divId: 'prebid-video-player' },
+            video: { divId: 'player' },
             bids: [
                 { bidder: 'appnexus', params: { placementId: 36028569 } },
                 { bidder: 'adagio', params: { organizationId: '1458', site: 'mobalytics-gg' } },
@@ -159,7 +159,7 @@
             pbjs.setConfig({
                 video: {
                     providers: [{
-                        divId: 'prebid-video-player',
+                        divId: 'player',
                         vendorCode: 2,
                         playerConfig: {
                             params: {
