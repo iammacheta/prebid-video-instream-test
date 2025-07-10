@@ -72,16 +72,16 @@
             code: 'div-gpt-ad-prebid-video-0',
             mediaTypes: {
                 video: {
-                    context: 'instream',   // технический способ вызова плеера
-                    plcmt: 2,              // Accompanying Content по OpenRTB 2.6 https://iabtechlab.com/demystifying-openrtb-video-plcmt-attributes/
-                    playerSize: [400, 225],
-                    mimes: ['video/mp4'],
-                    startdelay: 0,
-                    maxduration: 30,
-                    protocols: [2, 3, 5, 6],
-                    linearity: 1,
-                    // placement: 3, //3=in-article
-                    playbackmethod: [6]
+                    context: 'instream', // Recommended. legacy placement attribute .  Технический способ вызова плеера
+                    plcmt: 2, // Highly recommended to comply with new IAB video specifications. Accompanying Content по OpenRTB 2.6 https://iabtechlab.com/demystifying-openrtb-video-plcmt-attributes/
+                    playerSize: [400, 225], // Optional. The size (width, height) of the video player on the page, in pixels.
+                    mimes: ['video/mp4'], // ? recommended or required. Content MIME types supported, e.g., "video/x-ms-wmv", "video/mp4". Required by OpenRTB when using Prebid Server.
+                    startdelay: 0, // recommended. Indicates the start delay in seconds for ad placements
+                    maxduration: 30, // recommended. Maximum video ad duration in seconds.
+                    protocols: [2, 3, 5, 6, 7, 8],// recommended - iab, optional - prebid.  Describe the VAST formats your ad-renderer can play,  the renderer is Google IMA HTML5 SDK, because the videojs-ima plugin
+                    linearity: 1, // Optional. Indicates if the impression must be linear
+                    placement: 3, // Recommended. To support nonupdated ssps. 3=in-article
+                    playbackmethod: [6] // Initiates on Entering Viewport with Sound Off by Default
                 }
             },
             video: { divId: 'player' },
@@ -157,19 +157,19 @@
 
         pbjs.que.push(function () {
             pbjs.setConfig({
-                video: {
+                video: { // view-source:https://docs.prebid.org/prebid-video/video-module/integration-examples/videojs.html
                     providers: [{
-                        divId: 'player',
-                        vendorCode: 2,
+                        divId: 'player', // required. The HTML element id of the player or its placeholder div. Additionally, used to indicate which HTLM element must contain the Video Player instance when instantiated.
+                        vendorCode: 2, // required. The identifier of the Video Provider vendor. "2" for Video.js Video Provider
                         playerConfig: {
                             params: {
-                                adPluginConfig: { adLabel: 'Prebid Video', numRedirects: 10 },
-                                vendorConfig: { controls: true, autoplay: true, preload: 'auto' }
+                                adPluginConfig: { adLabel: 'Prebid Video', numRedirects: 10 }, // Options for the videojs-ima plugin
+                                vendorConfig: { controls: true, autoplay: true, preload: 'auto', muted:true } // Object passed straight to videojs() on instantiation
                             }
                         },
                         adServer: {
                             vendorCode: 'gam',
-                            baseAdTagUrl:
+                            baseAdTagUrl: // The VAST tag template; Prebid appends hb_ key-values (price, bidder, cache ID)
                                 'https://pubads.g.doubleclick.net/gampad/ads?' +
                                 'iu=/21974715207/prebid_cache_video_adunit' +   // ваш ad-unit
                                 '&sz=400x225' +                                // размер плеера
@@ -181,7 +181,7 @@
 
                     }]
                 },
-                cache: { url: 'https://prebid.adnxs.com/pbc/v1/cache' },
+                cache: { url: 'https://prebid.adnxs.com/pbc/v1/cache' }, // Endpoint where Prebid stores the raw VAST returned by bidders; Keep the AppNexus-hosted cache unless you run your own.
 
             });
 
