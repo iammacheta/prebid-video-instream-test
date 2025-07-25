@@ -150,6 +150,29 @@
 
         pbjs.que.push(function () {
             pbjs.setConfig({
+                floors: {
+                    enforcement: {
+                        enforcePBS: false,
+                        enforceJS: true,
+                    },
+                    default: 0.02
+                },
+                useBidCache: true,
+                minBidCacheTTL: 10,
+                eventHistoryTTL: 10,
+                enableSendAllBids: false,
+                timeoutBuffer: 400,
+                enableTIDs: true,
+                currency: {
+                    adServerCurrency: 'USD',
+                    granularityMultiplier: 1,
+                    defaultRates: {
+                        'EUR': 1.10,
+                        'GBP': 1.30
+                    },
+                    conversionRateFile: 'https://cdn.jsdelivr.net/gh/prebid/currency-file@1/latest.json',
+                },
+                deviceAccess: true,
                 video: { // view-source:https://docs.prebid.org/prebid-video/video-module/integration-examples/videojs.html
                     providers: [{
                         divId: 'player', // required. The HTML element id of the player or its placeholder div. Additionally, used to indicate which HTLM element must contain the Video Player instance when instantiated.
@@ -157,7 +180,7 @@
                         playerConfig: {
                             params: {
                                 adPluginConfig: { adLabel: 'Prebid Video', numRedirects: 10 }, // Options for the videojs-ima plugin
-                                vendorConfig: { controls: true, autoplay: true, preload: 'auto', muted:true } // Object passed straight to videojs() on instantiation
+                                vendorConfig: { controls: true, autoplay: true, preload: 'auto', muted: true } // Object passed straight to videojs() on instantiation
                             }
                         },
                         adServer: {
@@ -171,21 +194,29 @@
                                 '&output=xml_vast4' +                          // формат ответа
                                 '&unviewed_position_start=1'                   // отложенный показ
                         }
-
                     }]
                 },
                 cache: { url: 'https://prebid.adnxs.com/pbc/v1/cache' }, // Endpoint where Prebid stores the raw VAST returned by bidders; Keep the AppNexus-hosted cache unless you run your own.
 
             });
 
-            /***************** ПЕРВЫЙ (preroll) аукцион *****************/
             pbjs.addAdUnits(adUnits);
-            pbjs.requestBids(adUnits);
 
-            // фиксируем момент первого запроса
-            let lastBidRequestTs = Date.now();
+            // ---- функция запроса рекламы ----
+            let retryTimeoutId = null;
+            function clearRetryTimer() {
+                if (retryTimeoutId) {
+                    clearTimeout(retryTimeoutId);
+                    retryTimeoutId = null;
+                }
+            }
+            function requestVideoAd() {
+                clearRetryTimer();
+                console.log('→ Запрашиваем видеорекламу');
+                pbjs.requestBids({ adUnits });
+            }
 
-            /***************** player ready → контент + mid‑roll цикл *****/
+            // Инициализация плеера
             pbjs.onEvent('videoSetupComplete', () => {
                 const player = videojs('player');
 
@@ -196,36 +227,23 @@
                     title: 'Big Buck Bunny'
                 });
 
-                /* --- управляющие флаги и функции -------------------- */
-                let busyWithAdOrRequest = true; // true → на момент старта уже идёт запрос для преролла
-                const BID_INTERVAL = 30_000;    // 30 000 мс = 30 с
+                // 1. Сразу пробуем запросить первый ролик (preroll)
+                requestVideoAd();
 
-                function maybeRequestBid() {
-                    const now = Date.now();
-                    if (!busyWithAdOrRequest && (now - lastBidRequestTs) >= BID_INTERVAL) {
-                        console.log('⏰ 30 с истекли → запрашиваем свежий ролик');
-                        busyWithAdOrRequest = true;  // блокируем повторные вызовы
-                        lastBidRequestTs = now;      // фиксируем момент запроса
-                        pbjs.requestBids(adUnits);
-                    }
-                }
-
-                /* ---------- События плеера и Prebid ------------------ */
-                player.on('adstart', () => {
-                    busyWithAdOrRequest = true; // реклама пошла → считаем слот занятым
-                });
-
+                // 2. После окончания рекламы — сразу следующий запрос
                 player.on('adend', () => {
-                    busyWithAdOrRequest = false; // освободились, ждём 30 с до следующего запроса
+                    console.log('Реклама завершилась → пытаемся получить следующую');
+                    requestVideoAd();
                 });
 
+                // 3. Нет ставок → через 30 секунд повторить попытку
                 pbjs.onEvent('videoBidError', () => {
-                    console.warn('⚠️ videoBidError: ставка не получена');
-                    busyWithAdOrRequest = false; // разблокируем, но интервал в 30 с сохраняется
+                    console.warn('⚠️ Нет видеоставок. Повторим через 30 секунд.');
+                    clearRetryTimer();
+                    retryTimeoutId = setTimeout(() => {
+                        requestVideoAd();
+                    }, 3000);
                 });
-
-                /* Каждое обновление позиции контента — проверяем таймер */
-                player.on('timeupdate', maybeRequestBid);
             });
         });
     </script>
